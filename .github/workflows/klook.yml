@@ -2,7 +2,8 @@ name: Klook 優惠提醒
 
 on:
   schedule:
-    - cron: "*/10 * * * *"    # 只是看要不要發提醒（不連 Klook）；GitHub 常晚跑，程式會提早等著、時間到才發
+    - cron: "*/10 * * * *"    # 只是看要不要發提醒（不連 Klook）；GitHub 實際上常好幾小時才跑一次（10/16 八小時只跑一次），
+                              # 所以每次跑都把 3 天內的提醒先排進 ntfy（時間到 ntfy 伺服器自己送），LINE 靠這一次等著發
                               # 連 Klook 一天一次（19:00 之後第一次跑），見 watch.py scan_at
   workflow_dispatch:
     inputs:
@@ -25,12 +26,12 @@ concurrency:
 jobs:
   tick:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 350
     env:
       KLOOK_NTFY_TOPIC: ${{ secrets.KLOOK_NTFY_TOPIC }}
       LINE_CHANNEL_ID: ${{ secrets.LINE_CHANNEL_ID }}
       LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
-      KLOOK_WAIT_MINUTES: "25"
+      KLOOK_WAIT_MINUTES: "330"   # LINE 沒辦法預約，只能這一次等著發；ntfy 已先排好
       KLOOK_FORCE_SCAN: ${{ inputs.scan }}
     steps:
       - uses: actions/checkout@v4
