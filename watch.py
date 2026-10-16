@@ -552,7 +552,7 @@ def next_reminder(cfg, events, sent):
 def need_scan(cfg):
     """每天 scan_at 之後讀一次；超過 26 小時沒讀（例如前一次失敗）也讀。"""
     last = load(EVENTS, {}).get("scanned_at")
-    if not last:
+    if not last or os.environ.get("KLOOK_FORCE_SCAN") == "true":
         return True
     last, t = dt.datetime.fromisoformat(last), now()
     hh, mm = map(int, cfg["scan_at"].split(":"))

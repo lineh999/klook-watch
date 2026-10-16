@@ -5,6 +5,11 @@ on:
     - cron: "*/10 * * * *"    # 只是看要不要發提醒（不連 Klook）；GitHub 常晚跑，程式會提早等著、時間到才發
                               # 連 Klook 一天一次（19:00 之後第一次跑），見 watch.py scan_at
   workflow_dispatch:
+    inputs:
+      scan:
+        description: "馬上讀一次 Klook"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -22,6 +27,7 @@ jobs:
       LINE_CHANNEL_ID: ${{ secrets.LINE_CHANNEL_ID }}
       LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
       KLOOK_WAIT_MINUTES: "25"
+      KLOOK_FORCE_SCAN: ${{ inputs.scan }}
     steps:
       - uses: actions/checkout@v4
 
