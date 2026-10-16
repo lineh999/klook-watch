@@ -431,15 +431,12 @@ def build_events(kl, cfg):
 
 # ───────────── 推通知 ─────────────
 
-def push(cfg, title, body, url=None, ntfy=True, line=True, at=None):
-    """at＝排定時間：只用 ntfy，訊息先放在 ntfy 伺服器、時間到才送到手機（最多 3 天後）。"""
+def push(cfg, title, body, url=None):
     ok = False
-    if ntfy and cfg.get("ntfy_topic"):
+    if cfg.get("ntfy_topic"):
         msg = {"topic": cfg["ntfy_topic"], "title": title, "message": body, "tags": ["tada"], "priority": 4}
         if url:
             msg["click"] = url
-        if at:
-            msg["delay"] = str(int(at.timestamp()))
         req = urllib.request.Request("https://ntfy.sh/", data=json.dumps(msg).encode("utf-8"),
                                      headers={"Content-Type": "application/json"})
         try:
@@ -447,7 +444,7 @@ def push(cfg, title, body, url=None, ntfy=True, line=True, at=None):
             ok = True
         except Exception as e:  # noqa: BLE001 網路錯誤種類很多，記下來就好
             log(f"ntfy 推送失敗：{e}")
-    if line and not at and (cfg.get("line_channel_token") or cfg.get("line_channel_secret")):
+    if cfg.get("line_channel_token") or cfg.get("line_channel_secret"):
         try:
             token = cfg.get("line_channel_token") or line_token(cfg)
             text = f"{title}\n{body}" + (f"\n{url}" if url else "")
@@ -518,29 +515,6 @@ def remind_title(evs, mins):
     return f"Klook 再 {left_text(mins)}開搶：" + "、".join(names)[:60]
 
 
-def plan_ntfy(cfg, events, sent):
-    """GitHub 的定時工作常常好幾個小時才跑一次，不能等它準時：
-    每次跑就把 3 天內的提醒先排進 ntfy，時間到由 ntfy 伺服器自己送到手機。"""
-    if not cfg.get("ntfy_topic"):
-        return
-    t = now()
-    groups = {}
-    for e in events.values():
-        if not e.get("start"):
-            continue
-        s = dt.datetime.fromisoformat(e["start"])
-        for m in cfg["remind_minutes"]:
-            at, tag = s - dt.timedelta(minutes=m), f"{e['key']}@{m}"
-            if t + dt.timedelta(minutes=2) < at < t + dt.timedelta(hours=70) \
-                    and tag not in sent["reminded"] and tag not in sent["ntfy_planned"]:
-                groups.setdefault((e["start"], m), []).append(e)
-    for (start, m), evs in sorted(groups.items()):
-        at = dt.datetime.fromisoformat(start) - dt.timedelta(minutes=m)
-        if push(cfg, remind_title(evs, m), "\n".join(line_of(e) for e in evs), evs[0]["url"], line=False, at=at):
-            sent["ntfy_planned"] += [f"{e['key']}@{m}" for e in evs]
-            log(f"排好 ntfy 提醒 {at:%m/%d %H:%M}（{start} 開搶 {len(evs)} 筆）")
-
-
 def notify_due(cfg, events, sent):
     t = now()
     rem = sorted(cfg["remind_minutes"])
@@ -558,8 +532,7 @@ def notify_due(cfg, events, sent):
         due.setdefault((e["start"], min(ms)), []).append(e)
     for (start, m), evs in sorted(due.items()):
         mins = int((dt.datetime.fromisoformat(start) - t).total_seconds() // 60) + 1
-        planned = all(f"{e['key']}@{m}" in sent["ntfy_planned"] for e in evs)   # ntfy 已排好就只補 LINE
-        if push(cfg, remind_title(evs, mins), "\n".join(line_of(e) for e in evs), evs[0]["url"], ntfy=not planned):
+        if push(cfg, remind_title(evs, mins), "\n".join(line_of(e) for e in evs), evs[0]["url"]):
             for e in evs:
                 s = dt.datetime.fromisoformat(e["start"])
                 sent["reminded"] += [f"{e['key']}@{x}" for x in rem if s - dt.timedelta(minutes=x) <= t]
@@ -580,6 +553,14 @@ def next_reminder(cfg, events, sent):
             if f"{e['key']}@{m}" not in sent["reminded"] and (best is None or at < best):
                 best = at
     return best
+
+
+def next_scan_time(cfg):
+    """下一次該讀 Klook 的時間（今天的 scan_at 還沒讀就是今天，否則明天）。"""
+    t = now()
+    hh, mm = map(int, cfg["scan_at"].split(":"))
+    at = t.replace(hour=hh, minute=mm, second=0, microsecond=0)
+    return at if at > t else at + dt.timedelta(days=1)
 
 
 def need_scan(cfg):
@@ -615,7 +596,7 @@ def show(events):
 def tick():
     cfg = config()
     state = load(EVENTS, {})
-    sent = {"announced": [], "reminded": [], "ntfy_planned": [], **load(SENT, {})}
+    sent = {"announced": [], "reminded": [], **load(SENT, {})}
     events = state.get("events", {})
     if need_scan(cfg):
         try:
@@ -629,23 +610,27 @@ def tick():
                 push(cfg, "Klook 優惠提醒讀不到 Klook", "連續三次讀不到活動頁，提醒可能會漏，請看電腦上的 log.txt。")
     notify_new(cfg, events, sent)
     notify_due(cfg, events, sent)
-    plan_ntfy(cfg, events, sent)
     save(SENT, sent)
-    # 雲端的定時工作常晚 10～30 分鐘才跑：接下來 wait 分鐘內有提醒就先等著，時間到再發
+    # GitHub 的定時工作不準（10/16 八小時才跑一次），LINE 又不能預約：
+    # 雲端這一次就醒著等，有提醒時間到就發；KLOOK_CHAIN＝等到時限才結束，由工作流程再開下一次接力。
+    # 時限最晚到下一次該讀 Klook 的時間，讓下一棒去讀。
     wait = int(os.environ.get("KLOOK_WAIT_MINUTES") or 0)
-    deadline = now() + dt.timedelta(minutes=wait)
+    deadline = min(now() + dt.timedelta(minutes=wait), next_scan_time(cfg))
     while True:
         nxt = next_reminder(cfg, events, sent)
         if not nxt or nxt > deadline:
+            if os.environ.get("KLOOK_CHAIN") == "true" and deadline > now():
+                log(f"沒有要發的，等到 {deadline:%m/%d %H:%M} 交給下一棒")
+                time.sleep((deadline - now()).total_seconds())
             break
         secs = (nxt - now()).total_seconds()
         if secs > 0:
             log(f"等 {secs / 60:.0f} 分鐘到 {nxt:%H:%M} 發提醒")
             time.sleep(secs + 1)
         notify_due(cfg, events, sent)
+        save(SENT, sent)     # 發一則存一次，工作被中途砍掉也不會重發
     sent["announced"] = [k for k in sent["announced"] if k in events]
     sent["reminded"] = [k for k in sent["reminded"] if k.split("@")[0] in events]
-    sent["ntfy_planned"] = [k for k in sent["ntfy_planned"] if k.split("@")[0] in events]
     save(SENT, sent)
 
 
