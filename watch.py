@@ -621,7 +621,7 @@ def main():
     elif cmd == "list":
         show(load(EVENTS, {}).get("events", {}))
     elif cmd == "test":
-        ok = push(cfg, "Klook 優惠提醒：測試", "收到這則就設定好了。之後五折以上、買一送一的台灣優惠會推到這裡。",
+        ok = push(cfg, "Klook 優惠提醒：測試", "收到這則就設定好了（GitHub 雲端送出）。之後五折以上、買一送一的台灣優惠會推到這裡。",
                   BASE + "/zh-TW/tetris/promo/klook137/")
         print("已送出" if ok else "送不出去，看 data/log.txt")
     elif cmd == "tick":

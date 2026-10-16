@@ -10,6 +10,10 @@ on:
         description: "馬上讀一次 Klook"
         type: boolean
         default: false
+      test:
+        description: "推一則測試通知"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -44,6 +48,10 @@ jobs:
         run: |
           pip install playwright==1.55.0
           python -m playwright install --with-deps chromium
+
+      - name: 推測試通知
+        if: inputs.test
+        run: python watch.py test
 
       - name: 檢查並推通知
         run: python watch.py tick
