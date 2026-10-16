@@ -1,0 +1,53 @@
+name: Klook 優惠提醒
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"    # 只是看要不要發提醒（不連 Klook）；GitHub 常晚跑，程式會提早等著、時間到才發
+                              # 連 Klook 一天一次（19:00 之後第一次跑），見 watch.py scan_at
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: klook-watch
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      KLOOK_NTFY_TOPIC: ${{ secrets.KLOOK_NTFY_TOPIC }}
+      LINE_CHANNEL_ID: ${{ secrets.LINE_CHANNEL_ID }}
+      LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
+      KLOOK_WAIT_MINUTES: "25"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 要不要讀 Klook
+        id: need
+        run: echo "scan=$(python watch.py needscan)" >> "$GITHUB_OUTPUT"
+
+      - name: 裝瀏覽器（要讀 Klook 才裝）
+        if: steps.need.outputs.scan == 'yes'
+        run: |
+          pip install playwright==1.55.0
+          python -m playwright install --with-deps chromium
+
+      - name: 檢查並推通知
+        run: python watch.py tick
+
+      - name: 存回進度
+        run: |
+          git config user.name "klook-watch-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/events.json data/sent.json data/products.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: 更新優惠清單與已發提醒"
+          git pull --rebase
+          git push
