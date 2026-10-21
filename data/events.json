@@ -1,5 +1,5 @@
 {
- "scanned_at": "2026-10-20T19:00:45.020346+08:00",
+ "scanned_at": "2026-10-21T19:00:51.491027+08:00",
  "events": {
   "coupon:486071421": {
    "key": "coupon:486071421",
@@ -26,7 +26,7 @@
    "has_time": true,
    "key": "item:100:122041:now",
    "start": null,
-   "end": null,
+   "end": "2026-10-27T00:00:00+08:00",
    "first_seen": "2026-10-16T13:07+08:00"
   },
   "item:106:47044:202610231100": {
@@ -73,6 +73,81 @@
    "start": "2026-10-24T11:00:00+08:00",
    "end": null,
    "first_seen": "2026-10-16T13:07+08:00"
+  },
+  "item:100:54037:now": {
+   "kind": "商品",
+   "title": "Klook 商品 #54037（名稱沒抓到，點連結看）",
+   "city": "",
+   "discount": "買1送1",
+   "desc": "🔥 指定方案買1送1起",
+   "url": "https://www.klook.com/zh-TW/activity/54037/",
+   "section": "🔥 快樂星期五 Happy Friday - 熱銷產品",
+   "where": "台灣",
+   "has_time": false,
+   "key": "item:100:54037:now",
+   "start": null,
+   "end": null,
+   "first_seen": "2026-10-21T19:00+08:00"
+  },
+  "item:100:12080:now": {
+   "kind": "商品",
+   "title": "麗寶樂園門票：探索世界・馬拉灣・天空之夢摩天輪",
+   "city": "台中",
+   "discount": "買1送1",
+   "desc": "🔥 指定方案買1送1起",
+   "url": "https://www.klook.com/zh-TW/activity/12080/",
+   "section": "🔥 快樂星期五 Happy Friday - 熱銷產品",
+   "where": "台灣",
+   "has_time": false,
+   "key": "item:100:12080:now",
+   "start": null,
+   "end": null,
+   "first_seen": "2026-10-21T19:00+08:00"
+  },
+  "item:100:56599:now": {
+   "kind": "商品",
+   "title": "Klook 商品 #56599（名稱沒抓到，點連結看）",
+   "city": "",
+   "discount": "買1送1",
+   "desc": "🔥 指定方案買1送1起",
+   "url": "https://www.klook.com/zh-TW/activity/56599/",
+   "section": "🔥 快樂星期五 Happy Friday - 熱銷產品",
+   "where": "台灣",
+   "has_time": false,
+   "key": "item:100:56599:now",
+   "start": null,
+   "end": null,
+   "first_seen": "2026-10-21T19:00+08:00"
+  },
+  "item:100:8302:now": {
+   "kind": "商品",
+   "title": "Klook 商品 #8302（名稱沒抓到，點連結看）",
+   "city": "",
+   "discount": "買1送1",
+   "desc": "🔥 指定方案買1送1起",
+   "url": "https://www.klook.com/zh-TW/activity/8302/",
+   "section": "🔥 快樂星期五 Happy Friday - 熱銷產品",
+   "where": "台灣",
+   "has_time": false,
+   "key": "item:100:8302:now",
+   "start": null,
+   "end": null,
+   "first_seen": "2026-10-21T19:00+08:00"
+  },
+  "item:100:195102:now": {
+   "kind": "商品",
+   "title": "Klook 商品 #195102（名稱沒抓到，點連結看）",
+   "city": "",
+   "discount": "買1送1",
+   "desc": "🔥 指定方案買1送1起",
+   "url": "https://www.klook.com/zh-TW/activity/195102/",
+   "section": "🔥 快樂星期五 Happy Friday - 熱銷產品",
+   "where": "台灣",
+   "has_time": false,
+   "key": "item:100:195102:now",
+   "start": null,
+   "end": null,
+   "first_seen": "2026-10-21T19:00+08:00"
   }
  },
  "fail": 0
