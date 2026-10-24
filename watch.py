@@ -574,6 +574,86 @@ def need_scan(cfg):
     return (t >= today_at > last) or t - last > dt.timedelta(hours=26)
 
 
+# ───────────── 網路文章：飯店特惠這種沒預告的活動 ─────────────
+# 飯店 999 住宿券、雙 11 這類活動不會先在 Klook 活動頁露出，也不能去刷 Klook 飯店頁（會被擋）。
+# 改看新聞／部落格：每天用 Google 新聞搜尋讀一次，標題同時有 Klook 和飯店＋優惠字眼的新文章推一則 LINE。
+ARTICLE_QUERIES = ["Klook 飯店 特惠", "Klook 住宿券", "Klook 五星飯店 999", "Klook 酒店 優惠", "Klook 雙11", "Klook 11.11",
+                   "客路 飯店 優惠", "Klook 住宿 特價", "Klook 訂房 優惠"]
+ARTICLE_FRESH_DAYS = 7      # 只推這幾天內的文章，更早的只記下來（第一次執行才不會一次推一大堆舊文）
+ARTICLE_MAX_PUSH = 5
+ARTICLE_SEEN_MAX = 400
+HOTEL_WORDS = re.compile(r"飯店|住宿|酒店|入住|訂房|旅館|民宿")
+DEAL_WORDS = re.compile(r"優惠|特惠|折|\$|元|\d{3,4}|買一送一|買1送1|住宿券|搶|限時|半價|促銷|活動")
+BIG_SALE_WORDS = re.compile(r"雙11|雙 11|1111|11\.11|雙十一|Double Day|週年慶|全站")
+
+
+def article_hit(title):
+    if not re.search(r"Klook|客路", title, re.I):
+        return False
+    if HOTEL_WORDS.search(title) and DEAL_WORDS.search(title):
+        return True
+    return bool(BIG_SALE_WORDS.search(title))
+
+
+def fetch_articles(query):
+    import email.utils
+    import xml.etree.ElementTree as ET
+    url = "https://news.google.com/rss/search?" + urllib.parse.urlencode(
+        {"q": f"{query} when:14d", "hl": "zh-TW", "gl": "TW", "ceid": "TW:zh-Hant"})
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    root = ET.fromstring(urllib.request.urlopen(req, timeout=30).read())
+    out = []
+    for it in root.findall("./channel/item"):
+        title, link = (it.findtext("title") or "").strip(), (it.findtext("link") or "").strip()
+        try:
+            pub = email.utils.parsedate_to_datetime(it.findtext("pubDate")).astimezone(TZ)
+        except (TypeError, ValueError):
+            pub = now()
+        if title and link:
+            out.append({"title": title, "link": link, "pub": pub})
+    return out
+
+
+def need_articles(cfg, sent):
+    """每天 scan_at 之後看一次（跟讀 Klook 同一個時間），沒看過也看。"""
+    last = sent.get("articles_checked")
+    t = now()
+    hh, mm = map(int, cfg["scan_at"].split(":"))
+    if not last:
+        return True
+    return t >= t.replace(hour=hh, minute=mm, second=0, microsecond=0) and last != t.strftime("%Y-%m-%d")
+
+
+def watch_articles(cfg, sent):
+    if not need_articles(cfg, sent):
+        return
+    found, okay = {}, 0
+    for q in ARTICLE_QUERIES:
+        try:
+            for a in fetch_articles(q):
+                found.setdefault(a["link"], a)
+            okay += 1
+        except Exception as e:  # noqa: BLE001 搜尋失敗不影響 Klook 提醒
+            log(f"文章搜尋失敗（{q}）：{e}")
+    if not okay:
+        return
+    seen = sent.setdefault("articles_seen", [])
+    fresh = []
+    for a in sorted(found.values(), key=lambda x: x["pub"], reverse=True):
+        if not article_hit(a["title"]) or a["link"] in seen:
+            continue
+        seen.append(a["link"])
+        if now() - a["pub"] <= dt.timedelta(days=ARTICLE_FRESH_DAYS):
+            fresh.append(a)
+    sent["articles_seen"] = seen[-ARTICLE_SEEN_MAX:]
+    sent["articles_checked"] = now().strftime("%Y-%m-%d")
+    log(f"文章：搜到 {len(found)} 篇，新的相關 {len(fresh)} 篇")
+    if fresh:
+        lines = [f"• {a['title']}\n  {a['link']}" for a in fresh[:ARTICLE_MAX_PUSH]]
+        more = f"\n（還有 {len(fresh) - ARTICLE_MAX_PUSH} 篇沒列）" if len(fresh) > ARTICLE_MAX_PUSH else ""
+        push(cfg, f"Klook 飯店／優惠新文章 {len(fresh)} 篇", "\n".join(lines) + more)
+
+
 # ───────────── 指令 ─────────────
 
 def do_scan(cfg):
@@ -610,6 +690,7 @@ def tick():
                 push(cfg, "Klook 優惠提醒讀不到 Klook", "連續三次讀不到活動頁，提醒可能會漏，請看電腦上的 log.txt。")
     notify_new(cfg, events, sent)
     notify_due(cfg, events, sent)
+    watch_articles(cfg, sent)
     save(SENT, sent)
     # GitHub 的定時工作不準（10/16 八小時才跑一次），LINE 又不能預約：
     # 雲端這一次就醒著等，有提醒時間到就發；KLOOK_CHAIN＝等到時限才結束，由工作流程再開下一次接力。
@@ -645,6 +726,11 @@ def main():
         ok = push(cfg, "Klook 優惠提醒：測試", "收到這則就設定好了（GitHub 雲端送出）。之後五折以上、買一送一的台灣優惠會推到這裡。",
                   BASE + "/zh-TW/tetris/promo/klook137/")
         print("已送出" if ok else "送不出去，看 data/log.txt")
+    elif cmd == "articles":           # 手動看一次文章（會真的推 LINE）
+        sent = {"announced": [], "reminded": [], **load(SENT, {})}
+        sent.pop("articles_checked", None)
+        watch_articles(cfg, sent)
+        save(SENT, sent)
     elif cmd == "tick":
         tick()
     elif cmd == "needscan":           # 雲端用：要讀 Klook 才裝瀏覽器
