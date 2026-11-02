@@ -16,7 +16,10 @@
   "item:100:83266:now",
   "item:100:46732:now",
   "item:100:80093:now",
-  "item:100:422:now"
+  "item:100:422:now",
+  "item:100:46732:202611070000",
+  "item:100:80093:202611070000",
+  "item:100:422:202611070000"
  ],
  "reminded": [],
  "articles_seen": [
@@ -25,5 +28,5 @@
   "https://news.google.com/rss/articles/CBMiUkFVX3lxTE0zYU5OWHpGRnR0WDNSYWpmam9YMkRDaXVmcTJpNkdONzZDcGdxcTlmY1ZZNU1Lejc3c3h3WGFQb3J3Z0hnb0RsdFROS1dDVXRJVXc?oc=5",
   "https://news.google.com/rss/articles/CBMiTkFVX3lxTE5BVldpT3VSWVQzZnd0SGdBXzl5bXRVOVBEYXhlekZJMEFhR2EtYm5lQm04OTM3VWgwbmtEMFNxeHk3TWdfNXRmdm5PZmNjZw?oc=5"
  ],
- "articles_checked": "2026-11-01"
+ "articles_checked": "2026-11-02"
 }
